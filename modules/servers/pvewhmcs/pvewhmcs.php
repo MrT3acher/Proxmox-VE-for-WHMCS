@@ -223,6 +223,11 @@ function pvewhmcs_CreateAccount($params) {
 				// enable ssh pwauth using cloudinit custom config file in proxmox via ssh connection to proxmox
 				$proxmox->ssh_ci_enable_ssh_pwauth($params["serviceid"]);
 
+				// require stop and start again for cloud init to work
+				$proxmox->start_vm($first_node, $vm_settings['newid']);
+				sleep(60);
+				$proxmox->stop_vm($first_node, $vm_settings['newid']);
+				sleep(60);
 				$proxmox->start_vm($first_node, $vm_settings['newid']);
 				return true;
 			} else {

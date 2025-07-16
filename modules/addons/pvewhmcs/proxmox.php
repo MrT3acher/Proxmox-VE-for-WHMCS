@@ -604,15 +604,26 @@ class PVE2_API {
 		include('Net/SSH2.php');
 		$ssh = new Net_SSH2($this->hostname);
 		if (!$ssh->login($this->username, $this->password)) {
-			exit('Login Failed');
+			error_log("ssh login failed.");
+			return false;
 		}
 
 		$vmid = $serviceid;
 
-		$ssh->exec("qm cloudinit dump $vmid user > /var/lib/vz/snippets/$vmid.yaml");
-		$ssh->exec("echo 'ssh_pwauth: True' >> /var/lib/vz/snippets/$vmid.yaml");
-		$ssh->exec("qm set $vmid --cicustom 'user=local:snippets/$vmid.yaml'");
-		$ssh->exec("qm cloudinit update $vmid");
+		$result = $ssh->exec("qm cloudinit dump $vmid user > /var/lib/vz/snippets/$vmid.yaml");
+		if ($result != "")
+		{
+			error_log("error dumping $vmid cloudinit config.");
+			return false;
+		}
+		$result = $ssh->exec("echo 'ssh_pwauth: True' >> /var/lib/vz/snippets/$vmid.yaml");
+		if ($result != "")
+		{
+			error_log("error adding ssh_pwauth to $vmid cloudinit config.");
+			return false;
+		}
+		$result = $ssh->exec("qm set $vmid --cicustom 'user=local:snippets/$vmid.yaml'");
+		$result = $ssh->exec("qm cloudinit update $vmid");
 
 		set_include_path($original_include_path);
 	}
