@@ -199,7 +199,31 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['cpu'] = $plan->cpuemu;
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
+				$cloned_tweaks['net0'] = $plan->netmodel;
+				$cloned_tweaks['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
+				if (!empty($plan->vlanid)) {
+					$cloned_tweaks['net0'] .= ',tag=' . $plan->vlanid;
+				}
+				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+				$cloned_tweaks['nameserver'] = '1.1.1.1 1.0.0.1';
+				$cloned_tweaks['cpuunits'] = $plan->cpuunits;
+				$cloned_tweaks['cpulimit'] = $plan->cpulimit;
+				$cloned_tweaks['memory'] = $plan->memory;
+
+				// Cloud-Init configs
+				$cloned_tweaks['ciuser'] = $params['username'];
+				$cloned_tweaks['cipassword'] = $params['password'];
 				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+
+				// Resize hard to the target size
+				$resize_payload['disk'] = $plan->disktype . '0';
+				$resize_payload['size'] = $plan->disk . 'G';
+				$amendment = $proxmox->put('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/resize', $resize_payload);
+
+				// enable ssh pwauth using cloudinit custom config file in proxmox via ssh connection to proxmox
+				$proxmox->ssh_ci_enable_ssh_pwauth($params["serviceid"]);
+
+				$proxmox->start_vm($first_node, $vm_settings['newid']);
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
@@ -250,7 +274,7 @@ function pvewhmcs_CreateAccount($params) {
 				$vm_settings['net0'] .= ',tag=' . $plan->vlanid;
 			}
 			$vm_settings['onboot'] = $plan->onboot;
-			$vm_settings['password'] = $params['customfields']['Password'];
+			$vm_settings['password'] = $params['password'];
 		} else {
 			////////////////////////////
 			// QEMU: Preparation Work //

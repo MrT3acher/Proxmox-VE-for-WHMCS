@@ -595,6 +595,28 @@ class PVE2_API {
 		return $this->action($action_path, "DELETE");
 	}
 
+	/*
+	 * enable ssh pwauth using cloudinit custom config file in proxmox via ssh connection to proxmox
+	 */
+	public function ssh_ci_enable_ssh_pwauth($serviceid) {
+		$original_include_path = get_include_path();
+		set_include_path(dirname(__FILE__) . '/phpseclib');
+		include('Net/SSH2.php');
+		$ssh = new Net_SSH2($this->hostname);
+		if (!$ssh->login($this->username, $this->password)) {
+			exit('Login Failed');
+		}
+
+		$vmid = $serviceid;
+
+		$ssh->exec("qm cloudinit dump $vmid user > /var/lib/vz/snippets/$vmid.yaml");
+		$ssh->exec("echo 'ssh_pwauth: True' >> /var/lib/vz/snippets/$vmid.yaml");
+		$ssh->exec("qm set $vmid --cicustom 'user=local:snippets/$vmid.yaml'");
+		$ssh->exec("qm cloudinit update $vmid");
+
+		set_include_path($original_include_path);
+	}
+
 	// Logout not required, PVEAuthCookie tokens have a 2 hour lifetime.
 }
 
