@@ -127,7 +127,7 @@ function pvewhmcs_CreateAccount($params) {
 			$first_node = $nodes[0];
 			unset($nodes);
 			$vm_settings['newid'] = $params["serviceid"];
-			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
+			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'] . "-" . $params["domain"];
 			$vm_settings['full'] = true;
 			// KVM TEMPLATE - Conduct the VM CLONE from Template to Machine
 			$logrequest = '/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
@@ -191,6 +191,12 @@ function pvewhmcs_CreateAccount($params) {
 						'v6prefix' => $plan->ipv6,
 					]
 				);
+				Capsule::table('tblhosting')->where('id', $params["serviceid"])->update(
+					[
+						'dedicatedip' => $ip->ipaddress,
+					]
+				);
+
 				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
 				$cloned_tweaks['memory'] = $plan->memory;
 				$cloned_tweaks['ostype'] = $plan->ostype;
