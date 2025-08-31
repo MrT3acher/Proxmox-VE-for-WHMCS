@@ -517,6 +517,11 @@ function pvewhmcs_SuspendAccount(array $params) {
 		// Log and fire request
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
 		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
+
+		$pve_cmdparam = array(
+			'onboot' => '0',
+		);
+		$proxmox->put('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/config', $pve_cmdparam);
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -553,7 +558,12 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 		$pve_cmdparam = array();
 		// Log and fire request
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start');
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start', $pve_cmdparam);
+
+		$pve_cmdparam = array(
+			'onboot' => '1',
+		);
+		$proxmox->put('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/config', $pve_cmdparam);
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
