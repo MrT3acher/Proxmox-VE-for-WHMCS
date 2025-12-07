@@ -1,4 +1,4 @@
-
+<?php
 /*  
 	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
 	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
@@ -19,6 +19,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see https://www.gnu.org/licenses
 */
+?>
 
 <html>
 	<head>

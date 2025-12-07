@@ -830,7 +830,6 @@ function pvewhmcs_AdminCustomButtonArray() {
 function pvewhmcs_ClientAreaCustomButtonArray() {
 	$buttonarray = array(
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
-		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 		"<i class='fa fa-2x fa-flag-checkered'></i> Start Machine" => "vmStart",
 		"<i class='fa fa-2x fa-sync'></i> Reboot Now" => "vmReboot",
 		"<i class='fa fa-2x fa-power-off'></i> Power Off" => "vmShutdown",
@@ -1042,6 +1041,17 @@ function pvewhmcs_vmStat($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
+	global $CONFIG;
+
+	$systemUrl = $CONFIG['SystemURL'];   // مثال: https://mywhmcs.com/ یا http://mywhmcs.com:8080/
+	$parts = parse_url($systemUrl);
+	$host = $parts['host'];              // mywhmcs.com
+	if (isset($parts['port'])) {
+		$port = $parts['port'];
+	} else {
+		$port = ($parts['scheme'] === 'https') ? 443 : 80;
+	}
+	
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
@@ -1064,9 +1074,9 @@ function pvewhmcs_noVNC($params) {
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
-		$path = 'api2/json/nodes/' . $node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		$path = '/api2/json/nodes/' . $node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
 		// Construct the noVNC Router URL with the path already prepared now
-		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $host . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
 		$vncreply = '<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 		return $vncreply;
@@ -1078,6 +1088,8 @@ function pvewhmcs_noVNC($params) {
 
 // VNC: Console access to VM/CT via SPICE
 function pvewhmcs_SPICE($params) {
+	global $CONFIG;
+	
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
@@ -1102,49 +1114,12 @@ function pvewhmcs_SPICE($params) {
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
 		// Construct the SPICE Router URL with the path already prepared now
-		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $CONFIG['SystemURL'] . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
 		$vncreply = '<center><strong>Console (SPICE) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare SPICE. Please contact Technical Support.';
-		return $vncreply;
-	}
-}
-
-// VNC: Console access to VM/CT via TigerVNC
-function pvewhmcs_javaVNC($params){
-	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
-		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
-	}
-	// Get login credentials then make the Proxmox connection attempt.
-	$serverip = $params["serverip"];
-	$serverusername = 'vnc';
-	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
-	if ($proxmox->login()) {
-		// Get first node name
-		$servername = Capsule::table('tblservers')->where('id', $params['serverid'])->value('name');
-		$node = $servername;
-		// Early prep work
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		$vncparams = array();
-		$vm_vncproxy = $proxmox->post('/nodes/'.$node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', $vncparams) ;
-		// Java-specific params
-		$javaVNCparams = array() ;
-		$javaVNCparams[0] = $serverip ;
-		$javaVNCparams[1] = str_replace("\n","|",$vm_vncproxy['cert']) ;
-		$javaVNCparams[2] = $vm_vncproxy['port'] ;
-		$javaVNCparams[3] = $vm_vncproxy['user'] ;
-		$javaVNCparams[4] = $vm_vncproxy['ticket'] ;
-		// URL preparation to deliver in hyperlink message
-		$url = './modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
-		$vncreply = '<center><strong>Console (TigerVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the TigerVNC window.</strong></center>' ;
-		// echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
-		return $vncreply;
-	} else {
-		$vncreply = 'Failed to prepare TigerVNC. Please contact Technical Support.';
 		return $vncreply;
 	}
 }
